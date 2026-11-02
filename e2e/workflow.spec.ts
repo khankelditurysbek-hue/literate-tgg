@@ -373,3 +373,116 @@ test("Қосымша формалар: ресми сынақ, сарапшы б�
     page.getByText("Қолжетімділікті қайта тексеру керек", { exact: true }),
   ).toBeVisible();
 });
+
+test("Актив жүктемесі: нақты кейс, өзгерту, сақтау, экспорт және бұрынғы деректерді сақтау", async ({
+  page,
+  request,
+}) => {
+  const before = await (await request.get("/api/store?mode=real")).json();
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Актив жүктемесі", exact: true })
+    .click();
+  await expect(
+    page.getByText("Жүктеме жазбалары енгізілмеген", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Шиелі аудит кейсін қарау" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Ресми аудит кейсі" }),
+  ).toContainText("бұзушылықтар анықталмағаны");
+  expect(
+    (await (await request.get("/api/store?mode=real")).json()).data.workloads,
+  ).toHaveLength(0);
+  await page.getByRole("button", { name: "Нақты дерекке қосу" }).click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(page.getByText("17.99%", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Төмен жүктеме: себептерін тексеру қажет", { exact: true }),
+  ).toBeVisible();
+  const after = await (await request.get("/api/store?mode=real")).json();
+  expect(after.data.trials).toEqual(before.data.trials);
+  expect(after.data.requests).toEqual(before.data.requests);
+  expect(after.data.decisions).toEqual(before.data.decisions);
+  await page.getByRole("button", { name: "Жүктеме жазбасын өзгерту" }).click();
+  let form = page.getByRole("dialog", { name: "Жүктеме жазбасы" });
+  await form.getByLabel("Қарау шегі, % (1–100)").fill("10");
+  await form.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(form).not.toBeVisible();
+  await expect(
+    page.getByText("Жүктеме белгіленген шектен төмен емес", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Жүктеме жазбасын өзгерту" }).click();
+  form = page.getByRole("dialog", { name: "Жүктеме жазбасы" });
+  await form.getByLabel("Қарау шегі, % (1–100)").fill("30");
+  await form
+    .getByLabel("Резервтік / шұғыл медициналық қажеттілік бар ма?")
+    .selectOption("yes");
+  await form.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(form).not.toBeVisible();
+  await expect(
+    page.getByText("Төмен жүктеме: түсіндірмені сарапшы бағаласын", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Актив жүктемесі", exact: true })
+    .click();
+  await expect(page.getByText("17.99%", { exact: true })).toBeVisible();
+  const response = await request.get(
+    "/api/files?mode=real&kind=workloads&format=xlsx",
+  );
+  expect(response.ok()).toBeTruthy();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load((await response.body()) as never);
+  const sheet = wb.worksheets[0];
+  const cells = sheet.getRow(1).values as unknown[];
+  const col = cells.findIndex((v) => v === "utilizationPercent");
+  expect(sheet.getRow(2).getCell(col).value as number).toBeCloseTo(
+    (914 / 5080) * 100,
+  );
+  await page
+    .getByRole("button", { name: "Есептер және аналитика", exact: true })
+    .click();
+  const event = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Түсініктеме және енгізу жоспары" })
+    .click();
+  const downloaded = await event;
+  const content = await readFile((await downloaded.path())!, "utf8");
+  expect(content).toContain("17.99%");
+  expect(content.match(/<section>/g)).toHaveLength(5);
+  await page.getByRole("button", { name: "DEMO", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Актив жүктемесі", exact: true })
+    .click();
+  await expect(page.getByText("17.99%", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Шиелі аудит кейсін қарау" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Нақты дерек", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Актив жүктемесі", exact: true })
+    .click();
+  await page.screenshot({
+    path: "test-results/workload-case-desktop.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.screenshot({
+    path: "test-results/workload-case-mobile.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Жүктеме жазбасын жою" }).click();
+  await expect(
+    page.getByText("Жүктеме жазбалары енгізілмеген", { exact: true }),
+  ).toBeVisible();
+});

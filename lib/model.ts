@@ -186,6 +186,42 @@ export const settingsSchema = z.object({
   frequency: short,
   rollout: short,
 });
+export const workloadSchema = z
+  .object({
+    id: text,
+    organization: text,
+    asset: text,
+    unit: text,
+    periodStart: date,
+    periodEnd: date,
+    capacity: qty,
+    actual: qty,
+    plannedAmount: money,
+    threshold: z.number().finite().min(1).max(100),
+    comparable: z.enum(["unknown", "yes", "no"]),
+    basis: short,
+    sourcePages: short,
+    evidence: evidenceSchema,
+    reasons: z.object({
+      reserve: z.enum(["unknown", "yes", "no"]),
+      staff: z.enum(["unknown", "yes", "no"]),
+      downtime: z.enum(["unknown", "yes", "no"]),
+      referrals: z.enum(["unknown", "yes", "no"]),
+      geography: z.enum(["unknown", "yes", "no"]),
+    }),
+    expertConclusion: short,
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.periodEnd < v.periodStart)
+      ctx.addIssue({
+        code: "custom",
+        path: ["periodEnd"],
+        message: "Кезеңнің соңы басталуынан бұрын болмауы тиіс",
+      });
+  });
+export type Workload = z.infer<typeof workloadSchema>;
 export const datasetSchema = z
   .object({
     requests: z.array(requestSchema).max(10000),
@@ -194,6 +230,7 @@ export const datasetSchema = z
     reviews: z.array(reviewSchema).max(10000),
     iterations: z.array(iterationSchema).max(10000),
     settings: settingsSchema,
+    workloads: z.array(workloadSchema).max(10000).default([]),
   })
   .superRefine((v, ctx) => {
     for (const key of [
@@ -202,6 +239,7 @@ export const datasetSchema = z
       "trials",
       "reviews",
       "iterations",
+      "workloads",
     ] as const)
       if (new Set(v[key].map((x) => x.id)).size !== v[key].length)
         ctx.addIssue({
@@ -259,6 +297,7 @@ export const emptyDataset = (): Dataset => ({
   trials: [],
   reviews: [],
   iterations: [],
+  workloads: [],
   settings: { lectureTool: "", owner: "", frequency: "", rollout: "" },
 });
 export function checkMode(data: Dataset, mode: Mode) {
@@ -268,6 +307,7 @@ export function checkMode(data: Dataset, mode: Mode) {
     ...r.alternatives.map((a) => a.evidence),
     r.finance.evidence,
   ]);
+  evidence.push(...data.workloads.map((w) => w.evidence));
   if (
     evidence.some((e) =>
       mode === "real" ? e.reliability === "demo" : e.reliability !== "demo",

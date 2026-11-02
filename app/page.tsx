@@ -54,6 +54,7 @@ import {
 } from "@/lib/model";
 import { demoDataset } from "@/lib/demo";
 import { buildReport } from "@/lib/report";
+import { Workloads } from "@/components/workloads";
 type Field = {
   key: string;
   label: string;
@@ -73,6 +74,7 @@ const NAV = [
   ["requests", "Сатып алу өтінімдері", ClipboardList],
   ["need", "Қажеттілікті тексеру", ShieldCheck],
   ["assets", "Активтер тізілімі", Boxes],
+  ["workloads", "Актив жүктемесі", Activity],
   ["alternatives", "Баламаларды салыстыру", GitCompareArrows],
   ["finance", "Қаржылық тиімділік", ChartNoAxesCombined],
   ["risks", "Тәуекелдер мен ескертулер", TriangleAlert],
@@ -1199,6 +1201,14 @@ export default function Home() {
                     </section>
                   </div>
                 </>
+              )}
+              {page === "workloads" && (
+                <Workloads
+                  data={data}
+                  mode={mode}
+                  saving={saving}
+                  persist={persist}
+                />
               )}
               {page === "requests" && (
                 <section className="panel">

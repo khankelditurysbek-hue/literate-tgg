@@ -1,3 +1,4 @@
+import { utilization } from "@/lib/utilization";
 import { NextRequest, NextResponse } from "next/server";
 import { load } from "@/lib/db";
 import {
@@ -86,6 +87,41 @@ export async function GET(req: NextRequest) {
         "potentialDifference",
         "confirmedSaving",
         "warning",
+      ];
+    } else if (kind === "workloads") {
+      rows = data.workloads.map((w) => {
+        const a = utilization(w);
+        return {
+          ...w,
+          evidence: JSON.stringify(w.evidence),
+          reasons: JSON.stringify(w.reasons),
+          utilizationPercent: a.percentage,
+          status: a.status,
+          limitations: a.conclusion,
+        };
+      });
+      columns = [
+        "id",
+        "organization",
+        "asset",
+        "unit",
+        "periodStart",
+        "periodEnd",
+        "capacity",
+        "actual",
+        "plannedAmount",
+        "threshold",
+        "comparable",
+        "basis",
+        "sourcePages",
+        "evidence",
+        "reasons",
+        "expertConclusion",
+        "utilizationPercent",
+        "status",
+        "limitations",
+        "createdAt",
+        "updatedAt",
       ];
     } else if (kind === "iterations") {
       rows = data.iterations;

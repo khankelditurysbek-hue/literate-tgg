@@ -11,7 +11,7 @@
     "test": "node --import tsx --test --test-isolation=none tests/*.test.ts",
     "test:e2e": "playwright test",
     "db:init": "node --import tsx scripts/init-db.ts",
-    "format": "prettier --write app lib tests e2e scripts *.ts *.mjs *.json README.md docs"
+    "format": "prettier --write app components lib tests e2e scripts *.ts *.mjs *.json README.md docs"
   },
   "dependencies": {
     "csv-parse": "^6.1.0",
