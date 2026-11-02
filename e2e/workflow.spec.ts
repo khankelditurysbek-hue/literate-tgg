@@ -1,0 +1,375 @@
+import { test, expect } from "@playwright/test";
+import ExcelJS from "exceljs";
+import { readFile } from "node:fs/promises";
+
+test("Толық сценарий: өтінім → активтер → TCO → шешім → импорт/экспорт → DEMO бөлінуі", async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Басқару панелі", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Алғашқы өтінімді тексеруден бастаңыз"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Жаңа өтінім", exact: true }).click();
+  let modal = page.getByRole("dialog");
+  for (const [label, value] of [
+    ["Өтінім идентификаторы", "REAL-001"],
+    ["Мемлекеттік орган", "Сынақ органы"],
+    ["Тауар немесе қызмет атауы", "Ноутбуктер"],
+    ["Сатып алу санаты", "Компьютер"],
+    ["Жоспарланған саны", "20"],
+    ["Бірлік бағасы, ₸", "250000"],
+    ["Қажетті жұмыс орындары / алушылар саны", "20"],
+    ["Қажетті қызметтік нәтиже", "20 қосымша жұмыс орнын қамтамасыз ету"],
+    ["Негіздемелік құжат / құжатқа сілтеме", "Сынақ актісі"],
+    ["Ақпарат көзі", "Интеграциялық сынақ"],
+    ["Дәлел құжатының атауы", "Түгендеу актісі"],
+    ["Дерек алынған күн", "2026-11-02"],
+  ])
+    await modal.getByLabel(label, { exact: false }).fill(value);
+  await modal.getByLabel("Дерек сенімділігі").selectOption("documented");
+  await modal.getByLabel("Дерек пен құжатты тексердім").check();
+  await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await page
+    .getByRole("button", { name: "Қажеттілікті тексеру", exact: true })
+    .click();
+  await page.getByText("Осы санаттағы активтер толық түгенделді").click();
+  await expect(page.getByRole("status")).toContainText("сақталды");
+  await page
+    .getByRole("button", { name: "Активтер тізілімі", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Актив енгізу", exact: true }).click();
+  modal = page.getByRole("dialog");
+  for (const [label, value] of [
+    ["Жалпы саны", "15"],
+    ["Қолданылып жатқан саны", "0"],
+    ["Жарамды бос активтер", "12"],
+    ["Жөндеуге жарамды", "2"],
+    ["Жарамсыз", "1"],
+    ["Тексеру күні", "2026-11-02"],
+    ["Тексеруші (қызметтік рөлі)", "Түгендеуші"],
+    ["Ақпарат көзі", "Сынақ"],
+    ["Дәлел құжатының атауы", "Акт"],
+    ["Дерек алынған күн", "2026-11-02"],
+  ])
+    await modal.getByLabel(label, { exact: true }).fill(value);
+  await modal.getByLabel("Функционалдық сәйкестік").selectOption("true");
+  await modal
+    .getByLabel("Талдау мерзімінде нақты қолжетімді")
+    .selectOption("true");
+  await modal.getByLabel("Дерек сенімділігі").selectOption("documented");
+  await modal.getByLabel("Дерек пен құжатты тексердім").check();
+  await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await page
+    .getByRole("button", { name: "Баламаларды салыстыру", exact: true })
+    .click();
+  for (const [name, cost] of [
+    ["Толық сатып алу", "5000000"],
+    ["Ішінара сатып алу", "2000000"],
+  ]) {
+    await page
+      .getByRole("button", { name: "Балама қосу", exact: true })
+      .click();
+    modal = page.getByRole("dialog");
+    await modal.getByLabel("Балама атауы").fill(name);
+    for (const input of await modal.locator("input[type=number]").all())
+      await input.fill("0");
+    await modal.getByLabel("Бастапқы сатып алу құны, ₸").fill(cost);
+    await modal.getByLabel("Қамтамасыз етілетін қызмет мерзімі, жыл").fill("3");
+    await modal
+      .getByLabel("Бірдей қызметтік нәтижеге сәйкес пе?")
+      .selectOption("true");
+    await modal.getByLabel("Ақпарат көзі", { exact: true }).fill("Сынақ");
+    await modal.getByLabel("Дәлел құжатының атауы").fill("Баға негіздемесі");
+    await modal.getByLabel("Дерек алынған күн").fill("2026-11-02");
+    await modal.getByLabel("Дерек сенімділігі").selectOption("documented");
+    await modal.getByLabel("Дерек пен құжатты тексердім").check();
+    await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+    await expect(modal).not.toBeVisible();
+  }
+  await page
+    .getByRole("button", { name: "Қаржылық тиімділік", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Нұсқалар мен растауды енгізу" })
+    .click();
+  modal = page.getByRole("dialog");
+  await modal
+    .getByLabel("Салыстырылатын бастапқы нұсқа")
+    .selectOption({ label: "Толық сатып алу" });
+  await modal
+    .getByLabel("Қолмен таңдалған балама")
+    .selectOption({ label: "Ішінара сатып алу" });
+  await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(
+    page.getByText("Нақты үнем расталмаған", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Қажеттілікті тексеру", exact: true })
+    .click();
+  await expect(
+    page.getByText("Ықтимал артық көлем анықталды", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".metric").filter({ hasText: "Негізделген жаңа саны" }),
+  ).toContainText("8");
+  await page
+    .getByRole("button", { name: "Шешімдер журналы", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Шешім тіркеу", exact: true }).click();
+  modal = page.getByRole("dialog");
+  for (const [label, value] of [
+    ["Анықталған мәселе", "Артық көлем"],
+    ["Дәлел", "Түгендеу актісі"],
+    ["Ұсынылған шешім", "8 дана сатып алу"],
+    ["Шешім қабылдаушының рөлі", "Сатып алу маманы"],
+    ["Негіздеме", "12 бос жарамды актив бар"],
+  ])
+    await modal.getByLabel(label, { exact: false }).fill(value);
+  await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Шешімдер журналы", exact: true })
+    .click();
+  await expect(
+    page.getByText("8 дана сатып алу", { exact: true }),
+  ).toBeVisible();
+  const state = await (await request.get("/api/store?mode=real")).json();
+  expect(state.data.requests).toHaveLength(1);
+  expect(state.data.decisions).toHaveLength(1);
+  const conflict = await request.put("/api/store?mode=real", {
+    data: { data: state.data, version: 0 },
+  });
+  expect(conflict.status()).toBe(409);
+  await page
+    .getByRole("button", { name: "Сатып алу өтінімдері", exact: true })
+    .click();
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("link", { name: "XLSX", exact: true }).click();
+  const downloaded = await downloadEvent;
+  const path = await downloaded.path();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load((await readFile(path!)) as never);
+  expect(wb.worksheets[0].getCell("A2").value).toBe("REAL-001");
+  await page.locator("input[type=file]").setInputFiles({
+    name: "trial.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "id,organization,title,category,plannedQuantity,unit,unitPrice,requiredOutcome,requiredQuantity,horizon\nREAL-002,Сынақ органы,Принтер,Принтер,2,дана,100000,Қосымша жұмыс,2,3\n",
+    ),
+  });
+  await expect(
+    page.getByRole("heading", { name: "Импортты растау" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Дерекқорға сақтау" }).click();
+  await expect(page.getByText("REAL-002 · Сынақ органы")).toBeVisible();
+  const importedRow = page.getByRole("row").filter({ hasText: "REAL-002" });
+  await importedRow
+    .getByRole("button", { name: "Өзгерту", exact: true })
+    .click();
+  modal = page.getByRole("dialog");
+  await modal
+    .getByLabel("Тауар немесе қызмет атауы")
+    .fill("Өзгертілген принтер");
+  await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(importedRow).toContainText("Өзгертілген принтер");
+  await page.getByRole("button", { name: "DEMO", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Мысалды жүктеу", exact: true })
+    .click();
+  await expect(
+    page.getByText("DEMO-001 · Шартты мемлекеттік орган"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Нақты дерек", exact: true }).click();
+  await expect(page.getByText("REAL-002 · Сынақ органы")).toBeVisible();
+  await expect(
+    page.getByText("DEMO-001 · Шартты мемлекеттік орган"),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Басқару панелі", exact: true })
+    .click();
+  await page.screenshot({
+    path: "test-results/dashboard-desktop.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("button", { name: "Мәзір", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.getByRole("button", { name: "Мәзір", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Жоба әдістемесі", exact: true })
+    .click();
+  await expect(
+    page.getByText("Дәрістегі таңдалған құрал — нақтылау қажет"),
+  ).toBeVisible();
+  await page.screenshot({
+    path: "test-results/mobile-method.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  for (const section of [
+    "Есептер және аналитика",
+    "Нақты деректермен сынақ",
+    "Сыни бағалау",
+    "ЖИ итерациялары",
+    "Тәуекелдер мен ескертулер",
+  ]) {
+    await page.getByRole("button", { name: section, exact: true }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: section, exact: true }),
+    ).toBeVisible();
+  }
+  await page
+    .getByRole("button", { name: "Сатып алу өтінімдері", exact: true })
+    .click();
+  page.once("dialog", (d) => d.accept());
+  await page
+    .getByRole("row")
+    .filter({ hasText: "REAL-002" })
+    .getByRole("button", { name: "Жою", exact: true })
+    .click();
+  await expect(page.getByText("REAL-002 · Сынақ органы")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("Қосымша формалар: ресми сынақ, сарапшы бағасы, ЖИ журналы, әдістеме және есеп", async ({
+  page,
+  request,
+}) => {
+  const { demoDataset } = await import("../lib/demo");
+  const current = await (await request.get("/api/store?mode=demo")).json();
+  expect(
+    (
+      await request.put("/api/store?mode=demo", {
+        data: { data: demoDataset(), version: current.version },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await page.goto("/");
+  await page.getByRole("button", { name: "DEMO", exact: true }).click();
+  await expect(
+    page.getByText("DEMO-001 · Шартты мемлекеттік орган"),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Жоба әдістемесі", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Әдістемені толықтыру" }).click();
+  let modal = page.getByRole("dialog");
+  await modal
+    .getByLabel("Дәрістегі нақты таңдалған құрал")
+    .fill("Шартты тест құралы");
+  await modal
+    .getByLabel("Жауапты маманның қызметтік рөлі")
+    .fill("Пилот жетекшісі");
+  await modal.getByLabel("Тексеру жиілігі").fill("Әрбір жоспарлау алдында");
+  await modal
+    .getByLabel("Кезеңдер, мерзімдер және жауапкершілік")
+    .fill("Шартты пилот → тексеру → мониторинг");
+  await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await page.getByRole("button", { name: "Сыни бағалау", exact: true }).click();
+  await page.getByRole("button", { name: "Бағалау қосу" }).click();
+  modal = page.getByRole("dialog");
+  await modal
+    .getByLabel("Жалған дабылдар")
+    .fill("Шартты сценарий: мерзімде қолжетімсіз актив");
+  await modal
+    .getByLabel("Сарапшының қорытындысы")
+    .fill("Қолжетімділікті қайта тексеру керек");
+  await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(
+    page.getByText("Қолжетімділікті қайта тексеру керек", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "ЖИ итерациялары", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Нақты итерация енгізу" }).click();
+  modal = page.getByRole("dialog");
+  for (const label of [
+    "Нақты енгізілген промпт",
+    "Қабылданған шешім",
+    "Орындалған тексерулер",
+    "Нақты өзгерістер",
+  ])
+    await modal
+      .getByLabel(label, { exact: false })
+      .fill("Шартты тест мәтіні, нақты диалог емес");
+  await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await page
+    .getByRole("button", { name: "Нақты деректермен сынақ", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Жазба қосу" }).click();
+  modal = page.getByRole("dialog");
+  await modal.getByLabel("Ресми идентификатор").fill("DEMO-LOT");
+  await modal.getByLabel("Атауы", { exact: false }).fill("Шартты лот");
+  await modal.getByLabel("Ресми дереккөз URL").fill("https://goszakup.gov.kz");
+  await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(
+    page.getByText(
+      "Бұл лот бойынша негізгі тәуекелді тексеруге қажетті ішкі деректер жоқ",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  const response = await request.get(
+    "/api/files?mode=demo&kind=trials&format=xlsx",
+  );
+  expect(response.ok()).toBeTruthy();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load((await response.body()) as never);
+  expect(wb.worksheets[0].getCell("C2").value).toBe("DEMO-LOT");
+  const upload = await request.post("/api/files?mode=real&kind=trials", {
+    multipart: {
+      file: {
+        name: "invalid.csv",
+        mimeType: "text/csv",
+        buffer: Buffer.from(
+          "id,type,officialId,title,url,date\nx,lot,1,Wrong,javascript:alert(1),2026-01-01\n",
+        ),
+      },
+    },
+  });
+  expect(upload.status()).toBe(400);
+  await page
+    .getByRole("button", { name: "Есептер және аналитика", exact: true })
+    .click();
+  const event = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Түсініктеме және енгізу жоспары" })
+    .click();
+  const download = await event;
+  const content = await readFile((await download.path())!, "utf8");
+  expect(content).toContain("Пилот жетекшісі");
+  expect(content).toContain("Шартты тест құралы");
+  expect(content).toContain("DEMO — Шартты дерек");
+  expect(content).toContain(
+    "Бұл лот бойынша негізгі тәуекелді тексеруге қажетті ішкі деректер жоқ",
+  );
+  expect(content.match(/<section>/g)).toHaveLength(4);
+  await page.reload();
+  await page.getByRole("button", { name: "DEMO", exact: true }).click();
+  await page.getByRole("button", { name: "Сыни бағалау", exact: true }).click();
+  await expect(
+    page.getByText("Қолжетімділікті қайта тексеру керек", { exact: true }),
+  ).toBeVisible();
+});
