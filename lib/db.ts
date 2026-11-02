@@ -1,3 +1,4 @@
+import { validateWorkflowChanges } from "./workflow";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -32,7 +33,16 @@ export function load(mode: Mode): { data: Dataset; version: number } {
     : { data: emptyDataset(), version: 0 };
 }
 export class ConflictError extends Error {}
-export function save(mode: Mode, input: unknown, version: number) {
+export function save(
+  mode: Mode,
+  input: unknown,
+  version: number,
+  resetDemo = false,
+) {
+  if (resetDemo && mode !== "demo")
+    throw new Error(
+      "Нақты деректерді DEMO қалпына келтіруімен ауыстыруға болмайды",
+    );
   const data = datasetSchema.parse(input);
   checkMode(data, mode);
   const sql = db();
@@ -43,6 +53,10 @@ export function save(mode: Mode, input: unknown, version: number) {
       throw new ConflictError(
         "Деректер басқа терезеде өзгерді. Қайта жүктеңіз.",
       );
+    validateWorkflowChanges(
+      data,
+      resetDemo ? { ...current.data, requests: [] } : current.data,
+    );
     const payload = JSON.stringify(data);
     const next = version + 1;
     sql

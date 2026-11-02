@@ -1,8 +1,10 @@
+import { extendDemo } from "./demo-workspace";
 import { newWorkload, officialWorkloadCase } from "./utilization";
 import {
   emptyDataset,
   emptyEvidence,
   emptyFinance,
+  emptyWorkflow,
   type Dataset,
   type Request,
 } from "./model";
@@ -86,6 +88,7 @@ export function demoDataset(): Dataset {
     },
     createdAt: now,
     updatedAt: now,
+    workflow: emptyWorkflow(),
   };
   d.requests = [r];
   const sourceCase = officialWorkloadCase();
@@ -171,7 +174,7 @@ export function demoDataset(): Dataset {
       createdAt: now,
     },
   ];
-  return d;
+  return extendDemo(d);
 }
 
 // Only add missing demo IDs. Existing local examples, user edits and settings survive.
@@ -190,6 +193,15 @@ export function addMissingDemoExamples(current: Dataset): Dataset {
     (next[key] as { id: string }[]).push(
       ...sample[key].filter((item) => !ids.has(item.id)),
     );
+  }
+  for (const key of ["lectureTool", "owner", "frequency", "rollout"] as const)
+    if (!next.settings[key]) next.settings[key] = sample.settings[key];
+  for (const r of next.requests) {
+    const match = sample.requests.find((s) => s.id === r.id);
+    if (match) {
+      for (const key of ["department", "ownerRole", "dueDate"] as const)
+        if (!r.workflow[key]) r.workflow[key] = match.workflow[key];
+    }
   }
   return next;
 }

@@ -259,12 +259,19 @@ test("Қосымша формалар: ресми сынақ, сарапшы б�
   expect(
     (
       await request.put("/api/store?mode=demo", {
-        data: { data: demoDataset(), version: current.version },
+        data: {
+          data: demoDataset(),
+          version: current.version,
+          resetDemo: true,
+        },
       })
     ).ok(),
   ).toBeTruthy();
   await page.goto("/");
   await page.getByRole("button", { name: "DEMO", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Сатып алу өтінімдері", exact: true })
+    .click();
   await expect(
     page.getByText("DEMO-001 · Шартты мемлекеттік орган"),
   ).toBeVisible();
@@ -326,10 +333,13 @@ test("Қосымша формалар: ресми сынақ, сарапшы б�
   await modal.getByRole("button", { name: "Сақтау", exact: true }).click();
   await expect(modal).not.toBeVisible();
   await expect(
-    page.getByText(
-      "Бұл лот бойынша негізгі тәуекелді тексеруге қажетті ішкі деректер жоқ",
-      { exact: true },
-    ),
+    page
+      .getByRole("row")
+      .filter({ has: page.getByText("DEMO-LOT", { exact: true }) })
+      .getByText(
+        "Бұл лот бойынша негізгі тәуекелді тексеруге қажетті ішкі деректер жоқ",
+        { exact: true },
+      ),
   ).toBeVisible();
   const response = await request.get(
     "/api/files?mode=demo&kind=trials&format=xlsx",
@@ -337,7 +347,7 @@ test("Қосымша формалар: ресми сынақ, сарапшы б�
   expect(response.ok()).toBeTruthy();
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load((await response.body()) as never);
-  expect(wb.worksheets[0].getCell("C2").value).toBe("DEMO-LOT");
+  expect(wb.worksheets[0].getColumn(3).values).toContain("DEMO-LOT");
   const upload = await request.post("/api/files?mode=real&kind=trials", {
     multipart: {
       file: {
@@ -493,4 +503,134 @@ test("Актив жүктемесі: нақты кейс, өзгерту, сақ
   await expect(
     page.getByText("Жүктеме жазбалары енгізілмеген", { exact: true }),
   ).toBeVisible();
+});
+
+test("Ішкі қарау кезеңдері: серверлік шектеулер, тарих және толтырылған DEMO жұмыс кеңістігі", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Өтінімдерді қарау", exact: true })
+    .click();
+  let card = page.locator(".review-card").filter({ hasText: "REAL-001" });
+  await card.getByRole("button", { name: "Кезеңді тіркеу" }).click();
+  let modal = page.getByRole("dialog", { name: "Өтінім кезеңін тіркеу" });
+  await modal.getByLabel("Ұсынған бөлім").fill("IT бөлімі");
+  await modal.getByLabel("Жауапты маманның рөлі").fill("Сатып алу маманы");
+  await modal.getByLabel("Жаңа кезең").selectOption("submitted");
+  await modal.getByLabel("Оқиғаны тіркеушінің рөлі").fill("Бөлім маманы");
+  await modal
+    .getByLabel("Оқиға / шешім негіздемесі")
+    .fill("Қосымша жұмыс орындары бойынша өтінім ұсынылды");
+  await modal.getByRole("button", { name: "Кезеңді сақтау" }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(card.locator(".stage-badge")).toContainText("Ұсынылды");
+  await card.getByRole("button", { name: "Кезеңді тіркеу" }).click();
+  modal = page.getByRole("dialog", { name: "Өтінім кезеңін тіркеу" });
+  await modal.getByLabel("Жаңа кезең").selectOption("review");
+  await modal.getByLabel("Оқиғаны тіркеушінің рөлі").fill("Сарапшы");
+  await modal
+    .getByLabel("Оқиға / шешім негіздемесі")
+    .fill("Активтер мен баламаларды қарау басталды");
+  await modal.getByRole("button", { name: "Кезеңді сақтау" }).click();
+  await expect(modal).not.toBeVisible();
+  await card.getByRole("button", { name: "Кезеңді тіркеу" }).click();
+  modal = page.getByRole("dialog", { name: "Өтінім кезеңін тіркеу" });
+  await modal.getByLabel("Жаңа кезең").selectOption("approved");
+  await modal.getByLabel("Оқиғаны тіркеушінің рөлі").fill("Ішкі бақылаушы");
+  await modal
+    .getByLabel("Оқиға / шешім негіздемесі")
+    .fill("Ішінара сатып алу нұсқасын ішкі қарауда келісу");
+  await modal.getByRole("button", { name: "Кезеңді сақтау" }).click();
+  await expect(modal.getByRole("alert")).toContainText("Ескертулерді");
+  await modal
+    .getByLabel("Ескертулерді қарап, қабылданған шешімге негіздеме бердім")
+    .check();
+  await modal.getByRole("button", { name: "Кезеңді сақтау" }).click();
+  await expect(modal).not.toBeVisible();
+  await expect(card.locator(".stage-badge")).toContainText(
+    "Ішкі келісім берілді",
+  );
+  const state = await (await request.get("/api/store?mode=real")).json();
+  const record = state.data.requests.find(
+    (r: { id: string }) => r.id === "REAL-001",
+  );
+  expect(record.workflow.events).toHaveLength(3);
+  const tampered = structuredClone(state.data);
+  tampered.requests.find(
+    (r: { id: string }) => r.id === "REAL-001",
+  ).workflow.events[0].note = "Ескі тарихты өзгерту";
+  expect(
+    (
+      await request.put("/api/store?mode=real", {
+        data: { data: tampered, version: state.version },
+      })
+    ).status(),
+  ).toBe(400);
+  const incomplete = structuredClone(state.data);
+  incomplete.requests.find(
+    (r: { id: string }) => r.id === "REAL-001",
+  ).requiredQuantity = null;
+  expect(
+    (
+      await request.put("/api/store?mode=real", {
+        data: { data: incomplete, version: state.version },
+      })
+    ).status(),
+  ).toBe(400);
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Өтінімдерді қарау", exact: true })
+    .click();
+  card = page.locator(".review-card").filter({ hasText: "REAL-001" });
+  await expect(card.locator(".stage-badge")).toContainText(
+    "Ішкі келісім берілді",
+  );
+  await page.getByRole("button", { name: "DEMO", exact: true }).click();
+  await expect(page.locator(".review-card")).toHaveCount(10);
+  await page.getByRole("button", { name: /^Ішкі келісім берілді/ }).click();
+  await expect(page.locator(".review-card")).toHaveCount(2);
+  await page.getByRole("button", { name: /^Барлығы/ }).click();
+  await page.getByLabel("Қарау кезегін іздеу").fill("Микроскоп");
+  await expect(page.locator(".review-card")).toHaveCount(1);
+  await expect(page.locator(".review-card")).toContainText("Дерек жеткіліксіз");
+  await page.getByLabel("Қарау кезегін іздеу").fill("");
+  await page.getByLabel("Басымдық сүзгісі").selectOption("urgent");
+  await expect(page.locator(".review-card")).toHaveCount(1);
+  await page.getByLabel("Басымдық сүзгісі").selectOption("all");
+  await page.screenshot({
+    path: "test-results/review-desk-desktop.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page
+    .getByRole("button", { name: "Басқару панелі", exact: true })
+    .click();
+  await expect(page.locator(".donut strong")).toHaveText("10");
+  await page.screenshot({
+    path: "test-results/rich-demo-dashboard.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.getByRole("button", { name: "Мәзір", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Өтінімдерді қарау", exact: true })
+    .click();
+  await page.screenshot({
+    path: "test-results/review-desk-mobile.png",
+    fullPage: true,
+    animations: "disabled",
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
 });

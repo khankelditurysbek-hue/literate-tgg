@@ -8,6 +8,7 @@ import {
   emptyDataset,
   emptyEvidence,
   emptyFinance,
+  emptyWorkflow,
   type Request,
   type Mode,
   type Dataset,
@@ -36,6 +37,7 @@ export const requestColumns = [
   "finance",
   "createdAt",
   "updatedAt",
+  "workflow",
 ];
 export const trialColumns = [
   "id",
@@ -62,13 +64,14 @@ export function csv(rows: Record<string, unknown>[], columns?: string[]) {
 }
 export function requestRows(data: Dataset) {
   return data.requests.map((r) => {
-    const { evidence, assets, alternatives, finance, ...rest } = r;
+    const { evidence, assets, alternatives, finance, workflow, ...rest } = r;
     return {
       ...rest,
       ...evidence,
       assets: JSON.stringify(assets),
       alternatives: JSON.stringify(alternatives),
       finance: JSON.stringify(finance),
+      workflow: JSON.stringify(workflow),
     };
   });
 }
@@ -131,6 +134,7 @@ export function importRows(
           ...emptyFinance(),
           evidence: emptyEvidence(mode === "demo"),
         }),
+        workflow: json(r.workflow, emptyWorkflow()),
         createdAt: r.createdAt || now,
         updatedAt: r.updatedAt || now,
       });

@@ -52,8 +52,9 @@ import {
   type Asset,
   type Alternative,
 } from "@/lib/model";
-import { demoDataset } from "@/lib/demo";
+import { demoDataset, addMissingDemoExamples } from "@/lib/demo";
 import { buildReport } from "@/lib/report";
+import { WorkflowDesk, WorkflowSummary } from "@/components/workflow-desk";
 import { Workloads } from "@/components/workloads";
 type Field = {
   key: string;
@@ -72,6 +73,7 @@ type Editor = {
 const NAV = [
   ["dashboard", "Басқару панелі", LayoutDashboard],
   ["requests", "Сатып алу өтінімдері", ClipboardList],
+  ["workflow", "Өтінімдерді қарау", FileChartColumn],
   ["need", "Қажеттілікті тексеру", ShieldCheck],
   ["assets", "Активтер тізілімі", Boxes],
   ["workloads", "Актив жүктемесі", Activity],
@@ -362,14 +364,14 @@ export default function Home() {
       active = false;
     };
   }, [mode]);
-  async function persist(next: Dataset) {
+  async function persist(next: Dataset, resetDemo = false) {
     if (saving) throw new Error("Алдыңғы сақтау аяқталсын");
     setSaving(true);
     try {
       const res = await fetch(`/api/store?mode=${mode}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: next, version }),
+        body: JSON.stringify({ data: next, version, resetDemo }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -975,10 +977,17 @@ export default function Home() {
                       "DEMO деректері оқу мысалымен ауыстырылады. Жалғастыру керек пе?",
                     )
                   )
-                    run(() => persist(demoDataset()));
+                    run(() => persist(demoDataset(), true));
                 }}
               >
                 Мысалды {data.requests.length ? "қайта жүктеу" : "жүктеу"}
+              </button>
+              <button
+                className="button secondary"
+                disabled={saving || loading}
+                onClick={() => run(() => persist(addMissingDemoExamples(data)))}
+              >
+                Үлгілерді толықтыру
               </button>
             </div>
           )}
@@ -1052,6 +1061,10 @@ export default function Home() {
                       icon={<TriangleAlert />}
                     />
                   </div>
+                  <WorkflowSummary
+                    data={data}
+                    onOpen={() => navigate("workflow")}
+                  />
                   <div className="dashboard-grid">
                     <section className="panel">
                       <div className="panel-head">
@@ -1201,6 +1214,17 @@ export default function Home() {
                     </section>
                   </div>
                 </>
+              )}
+              {page === "workflow" && (
+                <WorkflowDesk
+                  data={data}
+                  saving={saving}
+                  persist={persist}
+                  onOpenRequest={(r) => {
+                    setSelected(r.id);
+                    navigate("need");
+                  }}
+                />
               )}
               {page === "workloads" && (
                 <Workloads
@@ -1732,7 +1756,11 @@ export default function Home() {
                   <section className="panel">
                     <div className="panel-head">
                       <div>
-                        <h2>Ресми материалдарды сынау</h2>
+                        <h2>
+                          {mode === "demo"
+                            ? "Шартты сынақ материалдары"
+                            : "Ресми материалдарды сынау"}
+                        </h2>
                         <p>
                           {data.trials.filter((t) => t.type === "lot").length}{" "}
                           лот ·{" "}

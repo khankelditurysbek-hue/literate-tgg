@@ -36,10 +36,12 @@ export async function PUT(req: NextRequest) {
         { error: "Файл көлемі 8 МБ-тан аспауы тиіс" },
         { status: 413 },
       );
-    const { data, version } = JSON.parse(body);
+    const { data, version, resetDemo } = JSON.parse(body);
     if (!Number.isInteger(version) || version < 0)
       throw new Error("Нұсқа жарамсыз");
-    return NextResponse.json(save(mode(req), data, version));
+    return NextResponse.json(
+      save(mode(req), data, version, resetDemo === true),
+    );
   } catch (e) {
     return NextResponse.json(
       {

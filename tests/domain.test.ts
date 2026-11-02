@@ -82,7 +82,8 @@ test("7. Ортақ мерзімдегі TCO және мерзім шектеу�
   assert.equal(tco(r.alternatives[0], 3), null);
 });
 test("8. KRI тек толық тексерілген өтінімдермен есептеледі", () => {
-  const data = demoDataset();
+  const data = emptyDataset();
+  data.requests = [fixture()];
   const incomplete = fixture();
   incomplete.id = "incomplete";
   incomplete.requiredQuantity = null;
@@ -166,6 +167,7 @@ test("17. Импорт бар өтінімді үнсіз ауыстырмайд
 test("18. Есеп HTML мәтінін қауіпсіз шығарады, тексерілмеген деректі ашық көрсетеді", () => {
   const data = demoDataset();
   data.requests[0].title = "<script>alert(1)</script>";
+  data.trials = [];
   const report = buildReport(data, "demo");
   assert.ok(!report.includes("<script>"));
   assert.match(report, /&lt;script&gt;/);

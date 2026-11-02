@@ -88,6 +88,44 @@ export const financeSchema = z.object({
   reducedQuantity: qty,
   evidence: evidenceSchema,
 });
+export const stageSchema = z.enum([
+  "draft",
+  "submitted",
+  "review",
+  "returned",
+  "approved",
+  "rejected",
+]);
+export const workflowSchema = z.object({
+  stage: stageSchema,
+  department: short,
+  ownerRole: short,
+  priority: z.enum(["normal", "urgent"]),
+  dueDate: z.union([z.literal(""), date]),
+  events: z
+    .array(
+      z.object({
+        id: text,
+        from: stageSchema,
+        to: stageSchema,
+        role: text,
+        note: text,
+        acknowledged: z.boolean(),
+        at: z.iso.datetime(),
+      }),
+    )
+    .max(200),
+});
+export type Workflow = z.infer<typeof workflowSchema>;
+export type Stage = Workflow["stage"];
+export const emptyWorkflow = (): Workflow => ({
+  stage: "draft",
+  department: "",
+  ownerRole: "",
+  priority: "normal",
+  dueDate: "",
+  events: [],
+});
 export const requestSchema = z
   .object({
     id: text,
@@ -108,6 +146,7 @@ export const requestSchema = z
     finance: financeSchema,
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
+    workflow: workflowSchema.default(emptyWorkflow),
   })
   .superRefine((v, ctx) => {
     if (
