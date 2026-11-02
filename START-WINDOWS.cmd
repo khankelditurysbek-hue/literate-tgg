@@ -5,9 +5,12 @@ where node >nul 2>&1
 if errorlevel 1 goto node_missing
 node -e "if(process.versions.node.split('.')[0]!=='24')process.exit(1)"
 if errorlevel 1 goto node_missing
-if exist node_modules goto prepare
+node -e "const fs=require('fs'),c=require('crypto');try{const a=c.createHash('sha256').update(fs.readFileSync('package-lock.json')).digest('hex');process.exit(fs.readFileSync('node_modules/.qarjy-lock.sha256','utf8')===a?0:1)}catch{process.exit(1)}"
+if not errorlevel 1 goto prepare
 echo Installing dependencies. Internet is required for this step.
 call npm ci
+if errorlevel 1 goto failed
+node -e "const fs=require('fs'),c=require('crypto');fs.writeFileSync('node_modules/.qarjy-lock.sha256',c.createHash('sha256').update(fs.readFileSync('package-lock.json')).digest('hex'))"
 if errorlevel 1 goto failed
 :prepare
 call npm run db:init

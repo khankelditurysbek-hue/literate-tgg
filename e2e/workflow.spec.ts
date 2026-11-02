@@ -8,7 +8,7 @@ test("Толық сценарий: өтінім → активтер → TCO →
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/");
+  await page.goto("/archive");
   await expect(
     page.getByRole("heading", { name: "Басқару панелі", exact: true }),
   ).toBeVisible();
@@ -267,7 +267,7 @@ test("Қосымша формалар: ресми сынақ, сарапшы б�
       })
     ).ok(),
   ).toBeTruthy();
-  await page.goto("/");
+  await page.goto("/archive");
   await page.getByRole("button", { name: "DEMO", exact: true }).click();
   await page
     .getByRole("button", { name: "Сатып алу өтінімдері", exact: true })
@@ -389,7 +389,7 @@ test("Актив жүктемесі: нақты кейс, өзгерту, сақ
   request,
 }) => {
   const before = await (await request.get("/api/store?mode=real")).json();
-  await page.goto("/");
+  await page.goto("/archive");
   await page
     .getByRole("button", { name: "Актив жүктемесі", exact: true })
     .click();
@@ -509,7 +509,7 @@ test("Ішкі қарау кезеңдері: серверлік шектеул�
   page,
   request,
 }) => {
-  await page.goto("/");
+  await page.goto("/archive");
   await page
     .getByRole("button", { name: "Өтінімдерді қарау", exact: true })
     .click();

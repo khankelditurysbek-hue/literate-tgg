@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --hostname 0.0.0.0",
+    "dev": "next dev --hostname 127.0.0.1",
     "build": "next build --webpack",
-    "start": "next start --hostname 0.0.0.0",
+    "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test --test-isolation=none tests/*.test.ts",
@@ -20,9 +20,11 @@
     "exceljs": "^4.4.0",
     "lucide-react": "^0.468.0",
     "next": "^16.0.0",
+    "pdf-parse": "^2.4.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.3.0",
+    "tesseract.js": "^6.0.1",
     "zod": "^4.1.0"
   },
   "devDependencies": {

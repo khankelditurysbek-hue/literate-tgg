@@ -12,3 +12,7 @@ else {
     "DEMO мысалдары қосылды. Нақты деректер мен бұрынғы DEMO жазбалары сақталды.",
   );
 }
+
+import { seedAuditDemo } from "../lib/audit-demo";
+seedAuditDemo();
+console.log("Value Gate 2: дәлел файлдары бар 6 шартты сценарий дайын.");
