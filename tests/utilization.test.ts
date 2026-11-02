@@ -107,3 +107,30 @@ test("Жүктеме: есептегі қосымша мен HTML қауіпсі
   assert.match(html, /&lt;script&gt;/);
   assert.ok(!html.includes("<script>"));
 });
+
+test("DEMO: төмен жүктеме, резерв және дерек жетіспеушілігі дайын енгізілген", async () => {
+  const { demoDataset } = await import("../lib/demo");
+  const d = demoDataset();
+  assert.equal(datasetSchema.safeParse(d).success, true);
+  assert.doesNotThrow(() => checkMode(d, "demo"));
+  assert.throws(() => checkMode(d, "real"));
+  assert.equal(d.workloads.length, 3);
+  assert.equal(utilization(d.workloads[0]).percentage?.toFixed(2), "17.99");
+  assert.match(utilization(d.workloads[1]).status, /сарапшы/);
+  assert.equal(utilization(d.workloads[2]).percentage, null);
+  assert.equal(d.decisions.length, 1);
+  assert.equal(d.reviews.length, 1);
+  assert.equal(d.iterations.length, 0);
+});
+test("DEMO seed бұрынғы түзетулер мен жазбаларды сақтайды және қайталағанда өзгермейді", async () => {
+  const { demoDataset, addMissingDemoExamples } = await import("../lib/demo");
+  const d = demoDataset();
+  d.requests[0].title = "Пайдаланушының түзетуі";
+  d.settings.lectureTool = "Сақталуы тиіс";
+  d.workloads = [];
+  const next = addMissingDemoExamples(d);
+  assert.equal(next.requests[0].title, "Пайдаланушының түзетуі");
+  assert.equal(next.settings.lectureTool, "Сақталуы тиіс");
+  assert.equal(next.workloads.length, 3);
+  assert.deepEqual(addMissingDemoExamples(next), next);
+});

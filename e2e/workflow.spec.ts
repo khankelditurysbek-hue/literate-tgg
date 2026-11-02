@@ -365,7 +365,7 @@ test("Қосымша формалар: ресми сынақ, сарапшы б�
   expect(content).toContain(
     "Бұл лот бойынша негізгі тәуекелді тексеруге қажетті ішкі деректер жоқ",
   );
-  expect(content.match(/<section>/g)).toHaveLength(4);
+  expect(content.match(/<section>/g)).toHaveLength(5);
   await page.reload();
   await page.getByRole("button", { name: "DEMO", exact: true }).click();
   await page.getByRole("button", { name: "Сыни бағалау", exact: true }).click();
@@ -456,7 +456,15 @@ test("Актив жүктемесі: нақты кейс, өзгерту, сақ
   await page
     .getByRole("button", { name: "Актив жүктемесі", exact: true })
     .click();
-  await expect(page.getByText("17.99%", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", {
+      name: "Бейне гастроскопы бар эндоскопиялық бейнеақпараттық жүйе",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("DEMO · Эндоскопиялық жүйе", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Шиелі аудит кейсін қарау" }),
   ).toHaveCount(0);
